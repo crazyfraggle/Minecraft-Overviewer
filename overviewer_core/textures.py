@@ -987,6 +987,14 @@ def saplings(self, blockid, data):
         tex = self.load_image_texture("assets/minecraft/textures/block/dark_oak_sapling.png")
     return self.build_sprite(tex)
 
+sprite(blockid=11385, imagename="assets/minecraft/textures/block/oak_sapling.png")
+sprite(blockid=11386, imagename="assets/minecraft/textures/block/spruce_sapling.png")
+sprite(blockid=11387, imagename="assets/minecraft/textures/block/birch_sapling.png")
+sprite(blockid=11388, imagename="assets/minecraft/textures/block/jungle_sapling.png")
+sprite(blockid=11389, imagename="assets/minecraft/textures/block/acacia_sapling.png")
+sprite(blockid=11390, imagename="assets/minecraft/textures/block/dark_oak_sapling.png")
+sprite(blockid=11413, imagename="assets/minecraft/textures/block/bamboo_stage0.png")
+
 # bedrock
 block(blockid=7, top_image="assets/minecraft/textures/block/bedrock.png")
 
@@ -1927,6 +1935,90 @@ def lantern(self, blockid, data):
     alpha_over(img, top, (0, 8-hangoff), top)
     return img
 
+# bamboo
+@material(blockid=11416, transparent=True)
+def bamboo(self, blockid, data):
+    # get the  multipart texture of the lantern
+    inputtexture = self.load_image_texture("assets/minecraft/textures/block/bamboo_stalk.png")
+
+    # # now create a textures, using the parts defined in bamboo1_age0.json
+        # {   "from": [ 7, 0, 7 ],
+        #     "to": [ 9, 16, 9 ],
+        #     "faces": {
+        #         "down":  { "uv": [ 13, 4, 15, 6 ], "texture": "#all", "cullface": "down" },
+        #         "up":    { "uv": [ 13, 0, 15, 2], "texture": "#all", "cullface": "up" },
+        #         "north": { "uv": [ 0, 0, 2, 16 ], "texture": "#all" },
+        #         "south": { "uv": [ 0, 0, 2, 16 ], "texture": "#all" },
+        #         "west":  { "uv": [  0, 0, 2, 16 ], "texture": "#all" },
+        #         "east":  { "uv": [  0, 0, 2, 16 ], "texture": "#all" }
+        #     }
+        # }
+
+    side_crop = inputtexture.crop((0, 0, 3, 16))
+    side_slice = side_crop.copy()
+    side_texture = Image.new("RGBA", (16, 16), self.bgcolor)
+    side_texture.paste(side_slice,(0, 0))
+
+    # JSON data for top
+    # "up":    { "uv": [ 13, 0, 15, 2], "texture": "#all", "cullface": "up" },
+    top_crop = inputtexture.crop((13, 0, 16, 3))
+    top_slice = top_crop.copy()
+    top_texture = Image.new("RGBA", (16, 16), self.bgcolor)
+    top_texture.paste(top_slice,(5, 5))
+
+    # mimic parts of build_full_block, to get an object smaller than a block 
+    # build_full_block(self, top, side1, side2, side3, side4, bottom=None):
+    # a non transparent block uses top, side 3 and side 4.
+    img = Image.new("RGBA", (24, 24), self.bgcolor)
+    # prepare the side textures
+    # side3
+    side3 = self.transform_image_side(side_texture)
+    # Darken this side
+    sidealpha = side3.split()[3]
+    side3 = ImageEnhance.Brightness(side3).enhance(0.9)
+    side3.putalpha(sidealpha)
+    # place the transformed texture
+    xoff = 3
+    yoff = 0
+    alpha_over(img, side3, (4+xoff, yoff), side3)
+    # side4
+    side4 = self.transform_image_side(side_texture)
+    side4 = side4.transpose(Image.FLIP_LEFT_RIGHT)
+    # Darken this side
+    sidealpha = side4.split()[3]
+    side4 = ImageEnhance.Brightness(side4).enhance(0.8)
+    side4.putalpha(sidealpha)
+    alpha_over(img, side4, (-4+xoff, yoff), side4)
+    # top
+    top = self.transform_image_top(top_texture)
+    alpha_over(img, top, (-4+xoff, -5), top)
+    return img
+
+# composter
+@material(blockid=11417, data=list(range(9)), transparent=True)
+def composter(self, blockid, data):
+    side = self.load_image_texture("assets/minecraft/textures/block/composter_side.png")
+    top = self.load_image_texture("assets/minecraft/textures/block/composter_top.png")
+    # bottom = self.load_image_texture("assets/minecraft/textures/block/composter_bottom.png")
+
+    if data == 0:  # empty
+        return self.build_full_block(top, side, side, side, side)
+
+    if data == 8:
+        compost = self.transform_image_top(
+            self.load_image_texture("assets/minecraft/textures/block/composter_ready.png"))
+    else:
+        compost = self.transform_image_top(
+            self.load_image_texture("assets/minecraft/textures/block/composter_compost.png"))
+
+    nudge = {1: (0, 9), 2: (0, 8), 3: (0, 7), 4: (0, 6), 5: (0, 4), 6: (0, 2), 7: (0, 0), 8: (0, 0)}
+
+    img = self.build_full_block(None, side, side, None, None)
+    alpha_over(img, compost, nudge[data], compost)
+    img2 = self.build_full_block(top, None, None, side, side)
+    alpha_over(img, img2, (0, 0), img2)
+    return img
+
 # fire
 @material(blockid=51, data=list(range(16)), transparent=True)
 def fire(self, blockid, data):
@@ -1950,8 +2042,9 @@ block(blockid=52, top_image="assets/minecraft/textures/block/spawner.png", trans
 # wooden, cobblestone, red brick, stone brick, netherbrick, sandstone, spruce, birch,
 # jungle, quartz, red sandstone, (dark) prismarine, mossy brick and mossy cobblestone, stone smooth_quartz
 # polished_granite polished_andesite polished_diorite granite diorite andesite end_stone_bricks red_nether_brick stairs
+# smooth_red_sandstone_stairs
 @material(blockid=[53, 67, 108, 109, 114, 128, 134, 135, 136, 156, 163, 164, 180, 203, 11337, 11338, 11339,
-          11370, 11371, 11374, 11375, 11376, 11377, 11378, 11379, 11380, 11381, 11382, 11383, 11384], 
+          11370, 11371, 11374, 11375, 11376, 11377, 11378, 11379, 11380, 11381, 11382, 11383, 11384, 11415], 
           data=list(range(128)), transparent=True, solid=True, nospawn=True)
 def stairs(self, blockid, data):
     # preserve the upside-down bit
@@ -1996,6 +2089,7 @@ def stairs(self, blockid, data):
         11382: "assets/minecraft/textures/block/andesite.png",
         11383: "assets/minecraft/textures/block/end_stone_bricks.png",
         11384: "assets/minecraft/textures/block/red_nether_bricks.png",
+        11415: "assets/minecraft/textures/block/red_sandstone_top.png",
     }
 
     texture = self.load_image_texture(stair_id_to_tex[blockid]).copy()
@@ -4399,21 +4493,26 @@ def beacon(self, blockid, data):
 
 # cobblestone and mossy cobblestone walls, chorus plants, mossy stone brick walls
 # one additional bit of data value added for mossy and cobblestone
-@material(blockid=[139, 199, 11372], data=list(range(32)), transparent=True, nospawn=True)
+@material(blockid=[199, *range(21000,21013+1)], data=list(range(32)), transparent=True, nospawn=True)
 def cobblestone_wall(self, blockid, data):
-    # chorus plants
-    if blockid == 199:
-        t = self.load_image_texture("assets/minecraft/textures/block/chorus_plant.png").copy()
-    # mossy stone bricks
-    elif blockid == 11372:
-        t = self.load_image_texture("assets/minecraft/textures/block/mossy_stone_bricks.png").copy()
-    # no rotation, uses pseudo data
-    elif data & 0b10000 == 0:
-        # cobblestone
-        t = self.load_image_texture("assets/minecraft/textures/block/cobblestone.png").copy()
-    else:
-        # mossy cobblestone
-        t = self.load_image_texture("assets/minecraft/textures/block/mossy_cobblestone.png").copy()
+    walls_id_to_tex = {
+          199: "assets/minecraft/textures/block/chorus_plant.png", # chorus plants
+        21000: "assets/minecraft/textures/block/andesite.png",
+        21001: "assets/minecraft/textures/block/bricks.png",
+        21002: "assets/minecraft/textures/block/cobblestone.png",
+        21003: "assets/minecraft/textures/block/diorite.png",
+        21004: "assets/minecraft/textures/block/end_stone_bricks.png",
+        21005: "assets/minecraft/textures/block/granite.png",
+        21006: "assets/minecraft/textures/block/mossy_cobblestone.png",
+        21007: "assets/minecraft/textures/block/mossy_stone_bricks.png",
+        21008: "assets/minecraft/textures/block/nether_bricks.png",
+        21009: "assets/minecraft/textures/block/prismarine.png",
+        21010: "assets/minecraft/textures/block/red_nether_bricks.png",
+        21011: "assets/minecraft/textures/block/red_sandstone.png",
+        21012: "assets/minecraft/textures/block/sandstone.png",
+        21013: "assets/minecraft/textures/block/stone_bricks.png"
+    }
+    t = self.load_image_texture(walls_id_to_tex[blockid]).copy()
 
     wall_pole_top = t.copy()
     wall_pole_side = t.copy()
@@ -5068,3 +5167,6 @@ def glazed_terracotta(self, blockid, data):
 def sandstone(self, blockid, data):
     top = self.load_image_texture("assets/minecraft/textures/block/dried_kelp_top.png")
     return self.build_block(top, self.load_image_texture("assets/minecraft/textures/block/dried_kelp_side.png"))
+
+# scaffolding
+block(blockid=11414, top_image="assets/minecraft/textures/block/scaffolding_top.png", side_image="assets/minecraft/textures/block/scaffolding_side.png", solid=False, transparent=True)

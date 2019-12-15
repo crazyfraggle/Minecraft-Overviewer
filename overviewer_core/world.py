@@ -26,6 +26,7 @@ import numpy
 
 from . import nbt
 from . import cache
+from .biome import BiomeDispensary
 
 """
 This module has routines for extracting information about available worlds
@@ -314,12 +315,7 @@ class RegionSet(object):
             'minecraft:jungle_planks': (5, 3),
             'minecraft:acacia_planks': (5, 4),
             'minecraft:dark_oak_planks': (5, 5),
-            'minecraft:oak_sapling': (6, 0),
-            'minecraft:spruce_sapling': (6, 1),
-            'minecraft:birch_sapling': (6, 2),
-            'minecraft:jungle_sapling': (6, 3),
-            'minecraft:acacia_sapling': (6, 4),
-            'minecraft:dark_oak_sapling': (6, 5),
+            'minecraft:sapling': (6, 0),
             'minecraft:bedrock': (7, 0),
             'minecraft:water': (8, 0),
             'minecraft:lava': (10, 0),
@@ -529,8 +525,6 @@ class RegionSet(object):
             'minecraft:jungle_stairs': (136, 0),
             'minecraft:command_block': (137, 0),
             'minecraft:beacon': (138, 0),
-            'minecraft:cobblestone_wall': (139, 0),
-            'minecraft:mossy_cobblestone_wall': (139, 1),
             'minecraft:flower_pot': (140, 0),
             'minecraft:potted_poppy': (140, 0),  # Pots not rendering
             'minecraft:potted_blue_orchid': (140, 0),
@@ -818,7 +812,6 @@ class RegionSet(object):
             "minecraft:grindstone": (11369, 0),
             "minecraft:mossy_stone_brick_stairs": (11370, 0),
             "minecraft:mossy_cobblestone_stairs": (11371, 0),
-            "minecraft:mossy_stone_brick_wall": (11372, 0),
             "minecraft:lantern": (11373, 0),
             "minecraft:smooth_sandstone_stairs": (11374, 0),
             'minecraft:smooth_quartz_stairs': (11375, 0),
@@ -831,6 +824,33 @@ class RegionSet(object):
             'minecraft:andesite_stairs': (11382, 0),
             'minecraft:end_stone_brick_stairs': (11383, 0),
             'minecraft:red_nether_brick_stairs': (11384, 0),
+            'minecraft:oak_sapling': (11385, 0),
+            'minecraft:spruce_sapling': (11386, 0),
+            'minecraft:birch_sapling': (11387, 0),
+            'minecraft:jungle_sapling': (11388, 0),
+            'minecraft:acacia_sapling': (11389, 0),
+            'minecraft:dark_oak_sapling': (11390, 0),
+            'minecraft:bamboo_sapling': (11413, 0),
+            'minecraft:scaffolding': (11414, 0),
+            "minecraft:smooth_red_sandstone_stairs": (11415, 0),
+            'minecraft:bamboo': (11416, 0),
+            "minecraft:composter": (11417, 0),
+            # adding a gap in the numbering of walls to keep them all
+            # in one numbering block starting at 21000
+            'minecraft:andesite_wall': (21000, 0),
+            'minecraft:brick_wall': (21001, 0),
+            'minecraft:cobblestone_wall': (21002, 0),
+            'minecraft:diorite_wall': (21003, 0),
+            'minecraft:end_stone_brick_wall': (21004, 0),
+            'minecraft:granite_wall': (21005, 0),
+            'minecraft:mossy_cobblestone_wall': (21006, 0),
+            'minecraft:mossy_stone_brick_wall': (21007, 0),
+            'minecraft:nether_brick_wall': (21008, 0),
+            'minecraft:prismarine_wall': (21009, 0),
+            'minecraft:red_nether_brick_wall': (21010, 0),
+            'minecraft:red_sandstone_wall': (21011, 0),
+            'minecraft:sandstone_wall': (21012, 0),
+            'minecraft:stone_brick_wall': (21013, 0),
         }
 
         colors = [   'white', 'orange', 'magenta', 'light_blue',
@@ -1110,6 +1130,8 @@ class RegionSet(object):
                 data = 1
             else:
                 data = 0
+        elif key == "minecraft:composter":
+            data = palette_entry['Properties']['level']
         return (block, data)
 
     def get_type(self):
@@ -1168,7 +1190,7 @@ class RegionSet(object):
             result[4::8] = ((b[4::7] & 0x07) << 4) | ((b[3::7] & 0xf0) >> 4)
             result[5::8] = ((b[5::7] & 0x03) << 5) | ((b[4::7] & 0xf8) >> 3)
             result[6::8] = ((b[6::7] & 0x01) << 6) | ((b[5::7] & 0xfc) >> 2)
-            result[7::8] =  (b[6::7] & 0xfc) >> 1
+            result[7::8] =  (b[6::7] & 0xfe) >> 1
         # bits_per_value == 8 is handled above
         elif bits_per_value == 9:
             result[0::8] = ((b[1::9] & 0x01) << 8) |   b[0::9]
@@ -1349,13 +1371,15 @@ class RegionSet(object):
                 biomes = numpy.frombuffer(biomes, dtype=numpy.uint8)
             else:
                 biomes = numpy.asarray(biomes)
-            biomes = biomes.reshape((16,16))
+            #biomes = biomes.reshape((16,16))
+            biome_giver = BiomeDispensary(biomes)
         else:
             # Worlds converted by Jeb's program may be missing the Biomes key.
             # Additionally, 19w09a worlds have an empty array as biomes key
             # in some cases.
-            biomes = numpy.zeros((16, 16), dtype=numpy.uint8)
-        chunk_data['Biomes'] = biomes
+            #biomes = numpy.zeros((16, 16), dtype=numpy.uint8)
+            biome_giver = BiomeDispensary(numpy.zeros(256, dtype=numpy.uint8))
+        #chunk_data['Biomes'] = biomes
 
         unrecognized_block_types = {}
         for section in chunk_data['Sections']:
@@ -1363,6 +1387,7 @@ class RegionSet(object):
             # Turn the skylight array into a 16x16x16 matrix. The array comes
             # packed 2 elements per byte, so we need to expand it.
             try:
+                section['Biomes'] = biome_giver.get_biome(section["Y"])
                 if 'SkyLight' in section:
                     skylight = numpy.frombuffer(section['SkyLight'], dtype=numpy.uint8)
                     skylight = skylight.reshape((16,16,8))
@@ -1586,6 +1611,9 @@ class RotatedRegionSet(RegionSetWrapper):
         for section in chunk_data['Sections']:
             section = dict(section)
             newsections.append(section)
+            biomes = numpy.swapaxes(section['Biomes'], 0, 1)
+            biomes = numpy.rot90(biomes, self.north_dir)
+            section['Biomes'] = numpy.swapaxes(biomes, 0, 1)
             for arrayname in ['Blocks', 'Data', 'SkyLight', 'BlockLight']:
                 array = section[arrayname]
                 # Since the anvil change, arrays are arranged with axes Y,Z,X
@@ -1598,9 +1626,6 @@ class RotatedRegionSet(RegionSetWrapper):
         chunk_data['Sections'] = newsections
 
         # same as above, for biomes (Z/X indexed)
-        biomes = numpy.swapaxes(chunk_data['Biomes'], 0, 1)
-        biomes = numpy.rot90(biomes, self.north_dir)
-        chunk_data['Biomes'] = numpy.swapaxes(biomes, 0, 1)
         return chunk_data
 
     def get_chunk_mtime(self, x, z):
